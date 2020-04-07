@@ -434,3 +434,47 @@ function local_metadata_coursemodule_edit_post_actions($data, $course) {
     }
     return $data;
 }
+
+// View fileupload image file.
+function local_metadata_pluginfile($course, $cm, $context, $filearea, $args, $forcedownload, array $options=array()) {
+    global $CFG, $DB;
+
+
+    if ($context->contextlevel != CONTEXT_COURSECAT) {
+        require_login();
+    }
+
+    $fs = get_file_storage();
+    $file = $fs->get_file($context->id, 'local_metadata', $filearea, $args[0], '/', $args[1]);
+
+    send_file($file, $args[1], 0, $forcedownload, $options);
+}
+
+function local_metadata_fileupload_url($instanceid, $contextlevel) {
+    global $DB;
+
+    $result = array();
+    if ($categories = $DB->get_records('local_metadata_category', ['contextlevel' => $contextlevel], 'sortorder ASC')) {
+        foreach ($categories as $category) {
+            if ($fields = $DB->get_records('local_metadata_field', ['categoryid' => $category->id], 'sortorder ASC')) {
+                foreach ($fields as $field) {
+                    if($field->datatype == 'fileupload') {
+                        $newfield = "\\metadatafieldtype_{$field->datatype}\\metadata";
+                        $formfield = new $newfield($field->id, $instanceid);
+                        if ($formfield->is_visible() && !$formfield->is_empty()) {
+                            $tmp = array();
+                            $tmp['fieldtype'] = $field->datatype;
+                            $tmp['shortname'] = $formfield->field->shortname;
+                            $tmp['name'] = format_string($formfield->field->name);
+                            $tmp['url'] = $formfield->get_file_url();
+
+                            $result[] = $tmp;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    return $result;
+}
